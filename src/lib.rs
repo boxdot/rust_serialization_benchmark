@@ -3,6 +3,7 @@ pub mod bench_bincode;
 pub mod bench_capnp;
 pub mod bench_cbor;
 pub mod bench_flatbuffers;
+pub mod bench_flatdata;
 pub mod bench_postcard;
 pub mod bench_prost;
 pub mod bench_rkyv;
@@ -11,6 +12,9 @@ pub mod datasets;
 
 use core::{mem, ops};
 use rand::Rng;
+
+#[macro_use]
+extern crate flatdata;
 
 pub trait Generate {
     fn generate<R: Rng>(rng: &mut R) -> Self;
@@ -35,7 +39,7 @@ macro_rules! impl_generate {
                 rng.gen()
             }
         }
-    }
+    };
 }
 
 impl_generate!(u8);
@@ -90,7 +94,10 @@ macro_rules! impl_array {
     }
 }
 
-impl_array!(31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, );
+impl_array!(
+    31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8,
+    7, 6, 5, 4, 3, 2, 1, 0,
+);
 
 impl<T: Generate> Generate for Option<T> {
     fn generate<R: Rng>(rng: &mut R) -> Self {

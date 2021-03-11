@@ -1,16 +1,9 @@
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use rand_pcg::Lcg64Xsh32;
 use rust_serialization_benchmark::{
-    bench_abomonation,
-    bench_bincode,
-    bench_capnp,
-    bench_cbor,
-    bench_flatbuffers,
-    bench_postcard,
-    bench_prost,
-    bench_rkyv,
-    bench_serde_json,
-    datasets::mesh::{Mesh, Triangle},
+    bench_abomonation, bench_bincode, bench_capnp, bench_cbor, bench_flatbuffers, bench_flatdata,
+    bench_postcard, bench_prost, bench_rkyv, bench_serde_json,
+    datasets::mesh::{Mesh, Triangle, Vector3},
     generate_vec,
 };
 
@@ -37,8 +30,11 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     bench_bincode::bench(BENCH, c, &data);
 
     bench_capnp::bench(BENCH, c, &data, |bytes| {
-        let message_reader = capnp::serialize::read_message_from_flat_slice(bytes, Default::default()).unwrap();
-        let data = message_reader.get_root::<rust_serialization_benchmark::datasets::mesh::cp::mesh::Reader>().unwrap();
+        let message_reader =
+            capnp::serialize::read_message_from_flat_slice(bytes, Default::default()).unwrap();
+        let data = message_reader
+            .get_root::<rust_serialization_benchmark::datasets::mesh::cp::mesh::Reader>()
+            .unwrap();
         for triangle in data.get_triangles().unwrap().iter() {
             black_box(triangle.get_normal().unwrap());
         }
@@ -47,7 +43,8 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     bench_cbor::bench(BENCH, c, &data);
 
     bench_flatbuffers::bench(BENCH, c, &data, |bytes| {
-        let data = flatbuffers::get_root::<rust_serialization_benchmark::datasets::mesh::fb::Mesh>(bytes);
+        let data =
+            flatbuffers::get_root::<rust_serialization_benchmark::datasets::mesh::fb::Mesh>(bytes);
         for triangle in data.triangles().iter() {
             black_box(triangle.normal());
         }
@@ -57,7 +54,10 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 
     bench_prost::bench(BENCH, c, &data);
 
-    bench_rkyv::bench(BENCH, c, &data, 
+    bench_rkyv::bench(
+        BENCH,
+        c,
+        &data,
         |mesh| {
             for triangle in mesh.triangles.iter() {
                 black_box(triangle.normal);
@@ -70,7 +70,21 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                 triangle.normal.y = 0f32;
                 triangle.normal.z = 0f32;
             }
-        }
+        },
+    );
+
+    bench_flatdata::bench(
+        BENCH,
+        c,
+        &data,
+        |storage| {
+            rust_serialization_benchmark::datasets::mesh::fd::Mesh::open(storage.clone()).unwrap()
+        },
+        |mesh| {
+            for v in mesh.triangles().iter().skip(3).step_by(4) {
+                black_box(Vector3::from_flatdata(v));
+            }
+        },
     );
 
     bench_serde_json::bench(BENCH, c, &data);

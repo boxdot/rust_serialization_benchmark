@@ -258,6 +258,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "diff"
+version = "0.1.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0e25ea47919b1560c4e3b7fe0aaab9becf5b84a10325ddf7db0f0ba5e1026499"
+
+[[package]]
 name = "either"
 version = "1.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -277,6 +283,17 @@ checksum = "dbf606a9d6674ad82094652789cf69b0e6e598c2d3c9137c28970eec13f11644"
 dependencies = [
  "bitflags",
  "smallvec",
+]
+
+[[package]]
+name = "flatdata"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1c2ca6ba2148cacf9b3a7038bf13a048f2ade4f8b55f87cdd338771d3fc7960f"
+dependencies = [
+ "diff",
+ "memmap",
+ "walkdir",
 ]
 
 [[package]]
@@ -457,6 +474,16 @@ name = "memchr"
 version = "2.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0ee1c47aaa256ecabcaea351eae4a9b01ef39ed810004e298d2511ed284b1525"
+
+[[package]]
+name = "memmap"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6585fd95e7bb50d6cc31e20d4cf9afb4e2ba16c5846fc76793f11218da9c475b"
+dependencies = [
+ "libc",
+ "winapi",
+]
 
 [[package]]
 name = "memoffset"
@@ -804,6 +831,7 @@ dependencies = [
  "capnpc",
  "criterion",
  "flatbuffers",
+ "flatdata",
  "libflate",
  "postcard",
  "prost",

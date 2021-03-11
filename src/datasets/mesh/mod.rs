@@ -1,23 +1,30 @@
 pub mod mesh_capnp;
 pub mod mesh_generated;
+mod mesh_generated_flatdata;
 
 pub mod mesh_prost {
     include!(concat!(env!("OUT_DIR"), "/prost.mesh.rs"));
 }
 
+use crate::{bench_capnp, bench_flatbuffers, bench_flatdata, bench_prost, Generate};
 use core::pin::Pin;
-use crate::{Generate, bench_capnp, bench_flatbuffers, bench_prost};
 use flatbuffers::{FlatBufferBuilder, WIPOffset};
 pub use mesh_capnp as cp;
 pub use mesh_generated::mesh as fb;
+pub use mesh_generated_flatdata::mesh as fd;
 use rand::Rng;
 use rkyv::Archived;
+use std::sync::Arc;
 
 #[derive(
-    Clone, Copy,
+    Clone,
+    Copy,
     abomonation_derive::Abomonation,
-    rkyv::Archive, rkyv::Serialize, rkyv::Deserialize,
-    serde::Serialize, serde::Deserialize,
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    serde::Serialize,
+    serde::Deserialize,
 )]
 #[archive(copy)]
 pub struct Vector3 {
@@ -39,6 +46,24 @@ impl Generate for Vector3 {
 impl Into<fb::Vector3> for Vector3 {
     fn into(self) -> fb::Vector3 {
         fb::Vector3::new(self.x, self.y, self.z)
+    }
+}
+
+impl Vector3 {
+    fn serialize_flatdata(&self, v: &mut fd::Vector3) {
+        let encode_f32 = |value: f32| u32::from_le_bytes(value.to_le_bytes());
+        v.set_x(encode_f32(self.x));
+        v.set_y(encode_f32(self.y));
+        v.set_z(encode_f32(self.z));
+    }
+
+    pub fn from_flatdata(v: &fd::Vector3) -> Self {
+        let decode_f32 = |value: u32| f32::from_le_bytes(value.to_le_bytes());
+        Self {
+            x: decode_f32(v.x()),
+            y: decode_f32(v.y()),
+            z: decode_f32(v.z()),
+        }
     }
 }
 
@@ -66,10 +91,14 @@ impl bench_prost::Serialize for Vector3 {
 }
 
 #[derive(
-    Clone, Copy,
+    Clone,
+    Copy,
     abomonation_derive::Abomonation,
-    rkyv::Archive, rkyv::Serialize, rkyv::Deserialize,
-    serde::Serialize, serde::Deserialize,
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    serde::Serialize,
+    serde::Deserialize,
 )]
 #[archive(copy)]
 pub struct Triangle {
@@ -96,7 +125,7 @@ impl Into<fb::Triangle> for Triangle {
             &self.v0.into(),
             &self.v1.into(),
             &self.v2.into(),
-            &self.normal.into()
+            &self.normal.into(),
         )
     }
 }
@@ -109,7 +138,8 @@ impl<'a> bench_capnp::Serialize<'a> for Triangle {
         self.v0.serialize_capnp(&mut builder.reborrow().init_v0());
         self.v1.serialize_capnp(&mut builder.reborrow().init_v1());
         self.v2.serialize_capnp(&mut builder.reborrow().init_v2());
-        self.normal.serialize_capnp(&mut builder.reborrow().init_normal());
+        self.normal
+            .serialize_capnp(&mut builder.reborrow().init_normal());
     }
 }
 
@@ -128,8 +158,11 @@ impl bench_prost::Serialize for Triangle {
 
 #[derive(
     abomonation_derive::Abomonation,
-    rkyv::Archive, rkyv::Serialize, rkyv::Deserialize,
-    serde::Serialize, serde::Deserialize,
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    serde::Serialize,
+    serde::Deserialize,
 )]
 pub struct Mesh {
     pub triangles: Vec<Triangle>,
@@ -165,7 +198,9 @@ impl<'a> bench_capnp::Serialize<'a> for Mesh {
     type Builder = cp::mesh::Builder<'a>;
 
     fn serialize_capnp(&self, builder: &mut Self::Builder) {
-        let mut mesh = builder.reborrow().init_triangles(self.triangles.len() as u32);
+        let mut mesh = builder
+            .reborrow()
+            .init_triangles(self.triangles.len() as u32);
         for (i, value) in self.triangles.iter().enumerate() {
             value.serialize_capnp(&mut mesh.reborrow().get(i as u32));
         }
@@ -181,5 +216,25 @@ impl bench_prost::Serialize for Mesh {
             result.triangles.push(triangle.serialize_pb());
         }
         result
+    }
+}
+
+impl bench_flatdata::Serialize for Mesh {
+    type Archive = fd::Mesh;
+
+    fn serialize_fd(&self) -> std::io::Result<Arc<flatdata::MemoryResourceStorage>> {
+        let storage = flatdata::MemoryResourceStorage::new("/mesh");
+        let builder = fd::MeshBuilder::new(storage.clone()).expect("failed to create builder");
+
+        let mut triangles = builder.start_triangles()?;
+        for triangle in self.triangles.iter() {
+            triangle.v0.serialize_flatdata(triangles.grow()?);
+            triangle.v1.serialize_flatdata(triangles.grow()?);
+            triangle.v2.serialize_flatdata(triangles.grow()?);
+            triangle.normal.serialize_flatdata(triangles.grow()?);
+        }
+        triangles.close().expect("close failed"); // flush vector
+
+        Ok(storage)
     }
 }

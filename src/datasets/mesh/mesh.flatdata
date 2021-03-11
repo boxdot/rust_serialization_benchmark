@@ -1,0 +1,12 @@
+namespace mesh {
+struct Vector3 {
+    x : u32 : 32;
+    y : u32 : 32;
+    z : u32 : 32;
+}
+
+archive Mesh {
+    // Each triangle consists of 4 Vector3
+    triangles : vector<Vector3>;
+}
+} // namespace mesh
